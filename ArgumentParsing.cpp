@@ -148,7 +148,7 @@ std::string generateHelpString(std::regex const& filter) {
 					if (std::regex_match(paramIt->second->getArgName(), filter)) {
 						ParameterBase* pb = paramIt->second;
 						helpString += "--"+pb->getArgName() + std::string(maxArgNameLen - paramIt->first.size(), ' ');
-						if (not pb->isSpecified()) {// the difference are the brackets!
+						if (not pb) {// the difference are the brackets!
 							helpString += "(" + pb->stringifyValue() + ")";
 						} else {
 							helpString += pb->stringifyValue();
@@ -255,7 +255,7 @@ std::set<std::string> getNextArgHint(int argc, char const* const* argv) {
 	if (canAcceptNextArg) {
 		for (auto argProvider : argProviders) {
 			for (auto const& p : argProvider->getParameters()) {
-				if (not p.second->isSpecified()) {
+				if (not *p.second) {
 					hints.insert("--" + p.first);
 				}
 			}

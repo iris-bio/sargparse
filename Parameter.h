@@ -103,7 +103,7 @@ struct ParameterBase {
 	 * return true iff the Parameter was set (by any means)
 	 * even if the contained value is the default value
 	 */
-	bool isSpecified() const { return _valSpecified; };
+	operator bool() const { return _valSpecified; };
 
 protected:
 	ParameterBase(std::string const& argName, DescribeFunc const& describeFunc, Callback cb, ValueHintFunc const& hintFunc, Command& command);
@@ -134,8 +134,17 @@ public:
 	, _val(StorageManger::getInstance().storage.emplace(argName, defaultVal).first)
 	{}
 
-	operator T const&() const {
+	T& operator *() {
 		return _val->second;
+	}
+	T const& operator *() const {
+		return _val->second;
+	}
+	T* operator->() {
+		return &_val->second;
+	}
+	T const* operator->() const {
+		return &_val->second;
 	}
 
 	T const& get() const {
