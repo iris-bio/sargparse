@@ -71,6 +71,10 @@ T parseFromString(std::string str) {
 		throw ParseError{"invalid boolean specifier"};
 	}
 
+	if constexpr (std::is_same_v<T, std::string>) {
+		return str;
+	}
+
 	T ret;
 	// parse all integer-like types
 	if constexpr (std::numeric_limits<T>::is_exact) {
@@ -93,9 +97,11 @@ T parseFromString(std::string str) {
 			throw ParseError{"not an integer"};
 		}
 		// if we didnt parse everything check if it has some known suffix
-		if (int(nextIdx) != strEnd - strBegin) {
+		auto it = std::find_if(str.begin()+nextIdx, str.end(), [](char c){return not isspace(c);});
+		int offset = std::distance(str.begin(), it);
+		if (offset != strEnd - strBegin) {
 			if constexpr (not std::is_same_v<bool, T>) {
-				auto suffix = std::string_view{strBegin + nextIdx};
+				auto suffix = std::string_view{strBegin + offset};
 				auto value = parseSuffix<T>(suffix);
 				if (not value) {
 					throw ParseError{"unknown suffix"};
