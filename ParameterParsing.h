@@ -97,11 +97,9 @@ T parseFromString(std::string str) {
 			throw ParseError{"not an integer"};
 		}
 		// if we didnt parse everything check if it has some known suffix
-		auto it = std::find_if(str.begin()+nextIdx, str.end(), [](char c){return not isspace(c);});
-		int offset = std::distance(str.begin(), it);
-		if (offset != strEnd - strBegin) {
+		if (static_cast<int>(nextIdx) != strEnd - strBegin) {
 			if constexpr (not std::is_same_v<bool, T>) {
-				auto suffix = std::string_view{strBegin + offset};
+				auto suffix = std::string_view{strBegin + nextIdx};
 				auto value = parseSuffix<T>(suffix);
 				if (not value) {
 					throw ParseError{"unknown suffix"};
