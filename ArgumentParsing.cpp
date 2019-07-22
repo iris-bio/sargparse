@@ -106,15 +106,12 @@ std::string generateHelpString(std::regex const& filter) {
 	std::string helpString;
 
 	auto const & commands = detail::CommandRegistry::getInstance().getCommands();
-	if (commands.size() != 1) { // if there is more than just the default command
+	std::set<std::string> commandNames;
+	std::for_each(begin(commands), end(commands), [&](auto const& i) { commandNames.emplace(i.first); });
+	if (commandNames.size() != 1) { // if there is more than just the default command
 		helpString += "valid commands:\n\n";
-		int maxCommandStrLen = 0;
-		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
-			if (it->second != &Command::getDefaultCommand()) {
-				maxCommandStrLen = std::max(maxCommandStrLen, static_cast<int>(it->first.size())+2); // +2 cause we print two spaces at the beginning
-			}
-		}
-		maxCommandStrLen += 4;
+		int maxCommandStrLen = std::max_element(begin(commandNames), end(commandNames), [](auto const& a, auto const& b) {return a.size() < b.size(); })->size();
+		maxCommandStrLen += 2;// +2 cause we print two spaces at the beginning
 		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
 			if (it->second != &Command::getDefaultCommand()) {
 				helpString += "  " + it->first + std::string(maxCommandStrLen - it->first.size(), ' ') + it->second->getDescription() + "\n";
@@ -209,7 +206,9 @@ std::string generateGroffString() {
 }
 
 std::set<std::string> getNextArgHint(int argc, char const* const* argv) {
-	std::vector<Command*> argProviders = {&Command::getDefaultCommand()};
+	std::vector<Command*> argProviders;
+	auto const& [defaultStart, defaultEnd] = detail::CommandRegistry::getInstance().getCommands().equal_range("");
+	std::for_each(defaultStart, defaultEnd, [&](auto const& a) { return argProviders.emplace_back(a.second); });
 	std::string lastArgName;
 	std::vector<std::string> lastArguments;
 	tokenize(argc, argv, [&](std::string const& commandName){

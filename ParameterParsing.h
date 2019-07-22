@@ -211,7 +211,7 @@ std::string stringify(T const& t) {
 		}
 		return "[]";
 	} else if constexpr (std::is_same_v<std::string, T>) {
-		return "\"" + t + "\"";
+		return t;
 	} else if constexpr (std::is_same_v<bool, T>) {
 		return t?"true":"false";
 	} else {
