@@ -38,16 +38,16 @@ struct UniqueStorageManager final : Singleton<UniqueStorageManager<T>> {
 
 struct CommandRegistry : Singleton<CommandRegistry> {
 private:
-	std::multimap<std::string, Command*> _commands;
+	std::multimap<std::string, Command&> _commands;
 public:
 
-	void registerCommand(std::string const& name, Command* command) {
+	void registerCommand(std::string const& name, Command& command) {
 		_commands.emplace(name, command);
 	}
-	void deregisterCommand(std::string const& name, Command* command) {
+	void deregisterCommand(std::string const& name, Command& command) {
 		auto range = _commands.equal_range(name);
 		for (auto it=range.first; it != range.second;) {
-			if (it->second == command) {
+			if (&it->second == &command) {
 				it = _commands.erase(it);
 			} else {
 				++it;
@@ -272,7 +272,7 @@ struct Flag : Parameter<bool> {
 template<typename T>
 struct Choice : TypedParameter<T> {
 	using SuperClass = TypedParameter<T>;
-	using Callback = typename SuperClass::Callback;
+	using Callback   = typename SuperClass::Callback;
 private:
 	std::map<std::string, T> _name2ValMap;
 public:
@@ -348,9 +348,9 @@ public:
 
 
 struct Command {
-	using Registry = detail::CommandRegistry;
-	using Callback     = ParameterBase::Callback;
-	using DescribeFunc = ParameterBase::DescribeFunc;
+	using Registry      = detail::CommandRegistry;
+	using Callback      = ParameterBase::Callback;
+	using DescribeFunc  = ParameterBase::DescribeFunc;
 	using ValueHintFunc = ParameterBase::ValueHintFunc;
 
 private:
@@ -358,19 +358,19 @@ private:
 	std::string _description;
 	Callback    _cb;
 	bool        _isActive {false};
-	std::multimap<std::string, ParameterBase*> parameters;
+	std::multimap<std::string, ParameterBase&> parameters;
 public:
 
 	Command(std::string const& name, std::string const& description, Callback const& cb=Callback{}) :
 		Command({name}, description, cb) {}
 	Command(std::initializer_list<std::string> const& names, std::string const& description, Callback const& cb=Callback{}) : _names(names), _description(description), _cb(cb) {
 		for (auto const& _name : _names) {
-			Registry::getInstance().registerCommand(_name, this);
+			Registry::getInstance().registerCommand(_name, *this);
 		}
 	}
 	~Command() {
 		for (auto const& _name : _names) {
-			Registry::getInstance().deregisterCommand(_name, this);
+			Registry::getInstance().deregisterCommand(_name, *this);
 		}
 	}
 
@@ -378,10 +378,10 @@ public:
 		return _description;
 	}
 
-	void registerParameter(std::string const& name, ParameterBase* parameter) {
+	void registerParameter(std::string const& name, ParameterBase& parameter) {
 		parameters.emplace(name, parameter);
 	}
-	void deregisterParameter(std::string const& name, ParameterBase* parameter) {
+	void deregisterParameter(std::string const& name, ParameterBase& parameter) {
 		parameters.emplace(name, parameter);
 	}
 	auto getParameters() const -> decltype(parameters) const& {
