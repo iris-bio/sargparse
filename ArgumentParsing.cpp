@@ -111,10 +111,12 @@ std::string generateHelpString(std::regex const& filter) {
 	if (commandNames.size() != 1) { // if there is more than just the default command
 		helpString += "valid commands:\n\n";
 		int maxCommandStrLen = std::max_element(begin(commandNames), end(commandNames), [](auto const& a, auto const& b) {return a.size() < b.size(); })->size();
+        maxCommandStrLen = std::min(2, maxCommandStrLen); // the default command is marked with () so we need at least two characters
 		maxCommandStrLen += 2;// +2 cause we print two spaces at the beginning
 		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
 			if (&it->second != &Command::getDefaultCommand()) {
-				helpString += "  " + it->first + std::string(maxCommandStrLen - it->first.size(), ' ') + it->second.getDescription() + "\n";
+                std::string commandName = it->first.empty() ? "()" : it->first;
+				helpString += "  " + commandName + std::string(maxCommandStrLen - commandName.size()+1, ' ') + it->second.getDescription() + "\n";
 			}
 		}
 		helpString += "\n";
@@ -134,7 +136,7 @@ std::string generateHelpString(std::regex const& filter) {
 		}
 		if (anyMatch) {
 			maxArgNameLen += 4;
-			if (&it->second == &Command::getDefaultCommand()) {
+			if (it->first == "") {
 				helpString += "\nglobal parameters:\n\n";
 			} else {
 				helpString += "\nparameters for command " + it->first + ":\n\n";
