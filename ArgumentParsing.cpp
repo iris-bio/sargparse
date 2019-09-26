@@ -209,9 +209,9 @@ std::string generateGroffString() {
 }
 
 std::set<std::string> getNextArgHint(int argc, char const* const* argv) {
+    auto const& cmds = detail::CommandRegistry::getInstance().getCommands();
 	std::vector<Command*> argProviders;
-	auto const& [defaultStart, defaultEnd] = detail::CommandRegistry::getInstance().getCommands().equal_range("");
-	std::for_each(defaultStart, defaultEnd, [&](auto const& a) { argProviders.emplace_back(&a.second); });
+	std::for_each(begin(cmds), end(cmds), [&](auto const& a) { argProviders.emplace_back(&a.second); });
 	std::string lastArgName;
 	std::vector<std::string> lastArguments;
 	tokenize(argc, argv, [&](std::string const& commandName){
@@ -237,7 +237,7 @@ std::set<std::string> getNextArgHint(int argc, char const* const* argv) {
 	});
 	std::set<std::string> hints;
 
-	if (lastArgName.empty() and argProviders.size() == 1) {
+	if (lastArgName.empty() and argProviders.size() != 1) {
 		auto const& commands = detail::CommandRegistry::getInstance().getCommands();
 		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
 			hints.emplace(it->first);
