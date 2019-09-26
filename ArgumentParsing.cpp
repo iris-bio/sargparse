@@ -77,7 +77,7 @@ void parseArguments(int argc, char const* const* argv) {
 	});
 
 	// if no commands are active activate all default commands
-	bool anyCommandActive = std::find_if(commands.begin(), commands.end(), [](std::pair<std::string, Command&> const& c) {return c.second;}) != commands.end();
+	bool anyCommandActive = std::find_if(commands.begin(), commands.end(), [](std::pair<std::string, Command&> const& c) -> bool {return c.second;}) != commands.end();
 	if (not anyCommandActive) {
 		std::for_each(commands.begin(), commands.end(), [](std::pair<std::string, Command&> const& c) {
 			if (c.first == "") {
@@ -113,6 +113,7 @@ std::string generateHelpString(std::regex const& filter) {
 		int maxCommandStrLen = std::max_element(begin(commandNames), end(commandNames), [](auto const& a, auto const& b) {return a.size() < b.size(); })->size();
         maxCommandStrLen = std::min(2, maxCommandStrLen); // the default command is marked with () so we need at least two characters
 		maxCommandStrLen += 2;// +2 cause we print two spaces at the beginning
+        helpString += "  ()"  + std::string(maxCommandStrLen - 1, ' ') + "the default command\n";
 		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
 			if (&it->second != &Command::getDefaultCommand()) {
                 std::string commandName = it->first.empty() ? "()" : it->first;
