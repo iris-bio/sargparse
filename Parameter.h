@@ -7,6 +7,9 @@
 #include <functional>
 #include <numeric>
 #include <initializer_list>
+#include <typeindex>
+#include <memory>
+
 #include "ParameterParsing.h"
 
 
@@ -30,17 +33,51 @@ protected:
 	~Singleton() = default;
 };
 
+
+struct Storage {
+    virtual ~Storage() = default;
+
+// protected:
+//     Storage() = default;
+};
+
+// this holds all values of parameters
 template<typename T>
-struct UniqueStorageManager final : Singleton<UniqueStorageManager<T>> {
+struct TypedStorage : Storage {
 	using StorageT = std::map<std::string, T>;
 	StorageT storage;
+
+    virtual ~TypedStorage() = default;
+};
+
+struct StorageManager {
+private:
+    std::map<std::type_index, std::unique_ptr<Storage>> storages;
+public:
+    StorageManager() = default;
+
+    template<typename T>
+    TypedStorage<T>& getStorage() {
+        std::type_index index{typeid(T)};
+        auto it = storages.find(index);
+        if (it == storages.end()) {
+            it = storages.emplace(index, std::make_unique<TypedStorage<T>>()).first;
+        }
+        return static_cast<TypedStorage<T>&>(*it->second);
+    }
+
+    template<typename T>
+    T& getValue(std::string const& name, T const& defaultVal) {
+        auto& storage = getStorage<T>();
+        return storage.storage.emplace(name, defaultVal).first->second;
+    }
 };
 
 struct CommandRegistry : Singleton<CommandRegistry> {
 private:
 	std::multimap<std::string, Command&> _commands;
-public:
 
+public:
 	void registerCommand(std::string const& name, Command& command) {
 		_commands.emplace(name, command);
 	}
@@ -120,39 +157,34 @@ template<typename T>
 struct TypedParameter : ParameterBase {
 protected:
 	using SuperClass = ParameterBase;
-	using StorageManger = detail::UniqueStorageManager<T>;
-	using ValRefT = typename StorageManger::StorageT::iterator;
 	using value_type = T;
 
-	ValRefT _val;
+	value_type& _val;
 public:
 	TypedParameter(T const& defaultVal, std::string const& argName, std::string const& description, Callback cb=Callback{}, ValueHintFunc hintFunc=ValueHintFunc{}, Command& command=getDefaultCommand())
 	: TypedParameter(defaultVal, argName, [=]{return description;}, cb, hintFunc, command)
 	{}
-	TypedParameter(T const& defaultVal, std::string const& argName, DescribeFunc const& description, Callback cb=Callback{}, ValueHintFunc hintFunc=ValueHintFunc{}, Command& command=getDefaultCommand())
-	: SuperClass(argName, description, cb, hintFunc, command)
-	, _val(StorageManger::getInstance().storage.emplace(argName, defaultVal).first)
-	{}
+	TypedParameter(T const& defaultVal, std::string const& argName, DescribeFunc const& description, Callback cb=Callback{}, ValueHintFunc hintFunc=ValueHintFunc{}, Command& command=getDefaultCommand());
 
 	T& operator *() {
-		return _val->second;
+		return _val;
 	}
 	T const& operator *() const {
-		return _val->second;
+		return _val;
 	}
 	T* operator->() {
-		return &_val->second;
+		return &_val;
 	}
 	T const* operator->() const {
-		return &_val->second;
+		return &_val;
 	}
 
 	T const& get() const {
-		return _val->second;
+		return _val;
 	}
 
 	T& get() {
-		return _val->second;
+		return _val;
 	}
 };
 
@@ -164,7 +196,7 @@ struct SpeciallyTypedParameter : TypedParameter<T> {
 	using SuperClass::SuperClass;
 
 	void parse(std::vector<std::string> const& args) override {
-		SuperClass::_val->second = parsing::parse<T>(args);
+		SuperClass::_val = parsing::parse<T>(args);
 		SuperClass::parse(args);
 	}
 };
@@ -176,7 +208,7 @@ struct SpeciallyTypedParameter<bool> : TypedParameter<bool> {
 	using SuperClass::SuperClass;
 
 	void parse(std::vector<std::string> const& args) override {
-		SuperClass::_val->second = parsing::parse<value_type>(args);
+		SuperClass::_val = parsing::parse<value_type>(args);
 		SuperClass::parse(args);
 	}
 
@@ -198,7 +230,7 @@ struct SpeciallyTypedParameter<std::optional<T>> : TypedParameter<std::optional<
 	using SuperClass::SuperClass;
 
 	void parse(std::vector<std::string> const& args) override {
-		SuperClass::_val->second = parsing::parse<value_type>(args);
+		SuperClass::_val = parsing::parse<value_type>(args);
 		SuperClass::parse(args);
 	}
 
@@ -217,7 +249,7 @@ struct SpeciallyTypedParameter<std::vector<T>> : TypedParameter<std::vector<T>> 
 	using SuperClass::SuperClass;
 
 	void parse(std::vector<std::string> const& args) override {
-		SuperClass::_val->second = parsing::parse<value_type>(args);
+		SuperClass::_val = parsing::parse<value_type>(args);
 		SuperClass::parse(args);
 	}
 
@@ -235,7 +267,7 @@ struct SpeciallyTypedParameter<std::set<T>> : TypedParameter<std::set<T>> {
 	using SuperClass::SuperClass;
 
 	void parse(std::vector<std::string> const& args) override {
-		SuperClass::_val->second = parsing::parse<value_type>(args);
+		SuperClass::_val = parsing::parse<value_type>(args);
 		SuperClass::parse(args);
 	}
 
@@ -253,7 +285,7 @@ struct Parameter : SpeciallyTypedParameter<T> {
 	using SuperClass::SuperClass;
 
 	std::string stringifyValue() const override {
-		return parsing::stringify(SuperClass::_val->second);
+		return parsing::stringify(SuperClass::_val);
 	}
 };
 
@@ -289,13 +321,13 @@ public:
 		if (it == _name2ValMap.end()) {
 			throw parsing::detail::ParseError("cannot interpret " + args[0] + " as a valid value for " + SuperClass::getArgName());
 		}
-		SuperClass::_val->second = it->second;
+		SuperClass::_val = it->second;
 		SuperClass::parse(args);
 	}
 
 	std::string stringifyValue() const override {
 		for (auto const& n2v : _name2ValMap) {
-			if (n2v.second == SuperClass::_val->second) {
+			if (n2v.second == SuperClass::_val) {
 				return n2v.first;
 			}
 		}
@@ -327,6 +359,7 @@ public:
 struct Section {
 private:
 	std::string _name;
+
 public:
 	Section(std::string const& name)
 	: _name(name + ".")
@@ -355,9 +388,11 @@ struct Command {
 
 private:
 	std::vector<std::string> _names;
-	std::string _description;
-	Callback    _cb;
-	bool        _isActive {false};
+	std::string              _description;
+	Callback                 _cb;
+	bool                     _isActive {false};
+    detail::StorageManager   _storageManager;
+
 	std::multimap<std::string, ParameterBase&> parameters;
 public:
 
@@ -386,6 +421,12 @@ public:
 	}
 	auto getParameters() const -> decltype(parameters) const& {
 		return parameters;
+	}
+	auto getStorageManager() -> decltype(_storageManager)& {
+		return _storageManager;
+	}
+	auto getStorageManager() const -> decltype(_storageManager) const& {
+		return _storageManager;
 	}
 
 	void setActive(bool active) {
@@ -428,6 +469,12 @@ public:
 		return ::sargp::Section(name);
 	}
 };
+
+template<typename T>
+TypedParameter<T>::TypedParameter(T const& defaultVal, std::string const& argName, DescribeFunc const& description, Callback cb, ValueHintFunc hintFunc, Command& command)
+	: SuperClass(argName, description, cb, hintFunc, command)
+	, _val(command.getStorageManager().getValue(argName, defaultVal))
+{}
 
 }
 
