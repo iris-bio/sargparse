@@ -111,7 +111,7 @@ std::string generateHelpString(std::regex const& filter) {
 	if (commandNames.size() != 1) { // if there is more than just the default command
 		helpString += "valid commands:\n\n";
 		int maxCommandStrLen = std::max_element(begin(commandNames), end(commandNames), [](auto const& a, auto const& b) {return a.size() < b.size(); })->size();
-        maxCommandStrLen = std::min(2, maxCommandStrLen); // the default command is marked with () so we need at least two characters
+        maxCommandStrLen = std::max(2, maxCommandStrLen); // the default command is marked with () so we need at least two characters
 		maxCommandStrLen += 2;// +2 cause we print two spaces at the beginning
         helpString += "  ()"  + std::string(maxCommandStrLen - 1, ' ') + "the default command\n";
 		for (auto it = commands.begin(); it != commands.end(); it = commands.upper_bound(it->first)) {
